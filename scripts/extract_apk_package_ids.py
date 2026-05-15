@@ -22,9 +22,7 @@ import requests
 PKG_RE = re.compile(r"package:\s+name='([^']+)'")
 VERSION_RE = re.compile(r"versionName='([^']+)'")
 LABEL_RE = re.compile(r"application-label(?:-[^:]+)?:'([^']+)'")
-ICON_RE = re.compile(
-    r"(?:application-icon-[^:]+|icon)='([^']+)'"
-)
+
 
 
 @dataclass
@@ -37,7 +35,6 @@ class ApkInfo:
     size_bytes: int
     download_url: str
     play_store_url: str
-    icon_path: str
 
 
 def sanitize_filename(name: str) -> str:
@@ -166,7 +163,6 @@ def extract_badging(aapt: str, apk_path: Path):
 
     version_match = VERSION_RE.search(stdout)
     label_match = LABEL_RE.search(stdout)
-    icon_matches = ICON_RE.findall(stdout)
 
     package_id = pkg_match.group(1)
 
@@ -180,78 +176,12 @@ def extract_badging(aapt: str, apk_path: Path):
         if label_match else apk_path.stem
     )
 
-    icon_path = ""
-
-    if icon_matches:
-
-        preferred_icons = [
-            i for i in icon_matches
-            if (
-                ".png" in i
-                or ".webp" in i
-                or ".jpg" in i
-            )
-        ]
-
-        if preferred_icons:
-            icon_path = preferred_icons[0]
-
-        else:
-            icon_path = icon_matches[0]
 
     return (
         app_name,
         package_id,
         version_name,
-        icon_path
     )
-
-
-def extract_icon(
-    apk_path: Path,
-    internal_icon_path: str,
-    output_icon: Path
-):
-
-    if not internal_icon_path:
-        return False
-
-    try:
-
-        output_icon.parent.mkdir(
-            parents=True,
-            exist_ok=True
-        )
-
-        with output_icon.open("wb") as f:
-
-            proc = subprocess.run(
-                [
-                    "unzip",
-                    "-p",
-                    str(apk_path),
-                    internal_icon_path
-                ],
-                stdout=f,
-                stderr=subprocess.PIPE
-            )
-
-        if not output_icon.exists():
-            return False
-
-        if output_icon.stat().st_size == 0:
-
-            output_icon.unlink(
-                missing_ok=True
-            )
-
-            return False
-
-        return proc.returncode == 0
-
-    except Exception:
-
-        return False
 
 
 def generate_discoverium_config(
@@ -348,11 +278,11 @@ def markdown_table(rows, repo, release):
     lines.append("")
 
     lines.append(
-        "| Icon | App | Package ID | Asset Filename | Version | Play Store | Discoverium |"
+        "| App | Package ID | Asset Filename | Version | Play Store | Discoverium |"
     )
 
     lines.append(
-        "|---|---|---|---|---|---|---|"
+        "|---|---|---|---|---|---|"
     )
 
     for row in rows:
@@ -369,15 +299,8 @@ def markdown_table(rows, repo, release):
             f"{row.package_id}__"
             f"{safe_asset_name}.json"
         )
-        
-        icon_cell = (
-            f"<img src='{row.icon_path}' width='40'>"
-            if row.icon_path
-            else "No Icon"
-        )
                 
         lines.append(
-            f"| {icon_cell} "
             f"| **{row.app_name}** "
             f"| {row.package_id} "
             f"| {row.asset_name} "
@@ -462,9 +385,9 @@ def main() -> int:
         exist_ok=True
     )
 
-    icons_dir = Path("docs/icons")
+    
 
-    icons_dir.mkdir(parents=True, exist_ok=True)
+    
 
     json_output.parent.mkdir(
         parents=True,
@@ -543,8 +466,7 @@ def main() -> int:
         (
             app_name,
             package_id,
-            version_name,
-            internal_icon_path
+            version_name
         ) = extract_badging(
             aapt,
             out_path
@@ -559,57 +481,6 @@ def main() -> int:
             .replace("\\", "_")
         )
         
-        icon_filename = ""
-
-        if internal_icon_path:
-
-            if internal_icon_path.endswith(".xml"):
-
-                print(
-                    f"Skipping XML icon: {internal_icon_path}",
-                    flush=True
-                )
-
-            else:
-
-                icon_ext = Path(
-                    internal_icon_path
-                ).suffix.lower()
-
-                if icon_ext not in [
-                    ".png",
-                    ".webp",
-                    ".jpg",
-                    ".jpeg"
-                ]:
-                    icon_ext = ".png"
-
-                icon_filename = (
-                    f"{package_id}__"
-                    f"{safe_asset_name}"
-                    f"{icon_ext}"
-                )
-
-                icon_output = (
-                    icons_dir / icon_filename
-                )
-
-                extracted = extract_icon(
-                    out_path,
-                    internal_icon_path,
-                    icon_output
-                )
-
-                if extracted:
-
-                    print(
-                        f"Icon extracted: {icon_filename}",
-                        flush=True
-                    )
-
-                else:
-
-                    icon_filename = ""
 
         play_store_url = (
             "https://play.google.com/store/apps/details"
@@ -625,10 +496,6 @@ def main() -> int:
             size_bytes=int(asset.get("size", 0)),
             download_url=url,
             play_store_url=play_store_url,
-            icon_path=(
-                f"./icons/{icon_filename}"
-                if icon_filename else ""
-            )
         )
 
         discoverium_config = generate_discoverium_config(
@@ -722,7 +589,6 @@ def main() -> int:
                     "sha256": r.sha256,
                     "play_store_url": r.play_store_url,
                     "download_url": r.download_url,
-                    "icon_path": r.icon_path,
                 }
                 for r in results
             ],
