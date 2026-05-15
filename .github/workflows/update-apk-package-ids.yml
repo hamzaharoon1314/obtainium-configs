@@ -98,7 +98,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Add EVERYTHING
-          git add docs/
+          git add -f docs/
 
           echo "Git status:"
           git status
