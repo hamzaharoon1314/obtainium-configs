@@ -3,7 +3,7 @@ name: Update Repository Index
 on:
   workflow_run:
     workflows:
-      - Update APK package IDs
+      - APK Package ID & Discoverium Generator
     types:
       - completed
 
