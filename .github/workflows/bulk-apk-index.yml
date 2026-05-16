@@ -1,0 +1,112 @@
+# .github/workflows/bulk-apk-generator.yml
+name: Bulk APK Config Generator
+
+on:
+  push:
+    paths:
+      - "track.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Android build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            openjdk-17-jre-headless \
+            wget \
+            unzip
+
+          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+
+          cd /tmp
+          wget -q \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -O cmdline-tools.zip
+          unzip -q cmdline-tools.zip \
+            -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          mv \
+            "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" \
+            "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+
+          yes | \
+            "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            --sdk_root="$ANDROID_SDK_ROOT" \
+            "build-tools;34.0.0"
+
+          echo "AAPT_PATH=$(find "$ANDROID_SDK_ROOT/build-tools" -name aapt -type f | head -n 1)" >> "$GITHUB_ENV"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate configs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'EOF'
+          import json, subprocess, sys
+
+          with open("track.json") as f:
+              repos = json.load(f)
+
+          failed = []
+
+          for entry in repos:
+              repo    = entry["repo"]
+              release = entry.get("release", "latest")
+              print(f"\n--- Processing: {repo} @ {release} ---")
+              try:
+                  subprocess.run(
+                      [
+                          sys.executable,
+                          "scripts/apk_discoverium_config_generator.py",
+                          "--repo", repo,
+                          "--release", release,
+                      ],
+                      check=True,
+                  )
+              except subprocess.CalledProcessError as e:
+                  print(f"ERROR: {repo} failed with exit code {e.returncode}")
+                  failed.append(repo)
+
+          if failed:
+              print(f"\nFailed repos: {failed}")
+              sys.exit(1)
+          EOF
+
+      - name: Show generated files
+        run: |
+          echo "Generated files:"
+          find docs -type f
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add docs/
+
+          if git diff --cached --quiet; then
+            echo "No changes detected."
+            exit 0
+          fi
+
+          git commit -m "chore: update APK configs from track.json"
+          git push
