@@ -31,6 +31,10 @@ There's also a **Copy JSON** button if you want the raw config, and a **Play Sto
 ## Tracked repos
 
 <!-- TRACKED_REPOS_START -->
+- [FiorenMas/Revanced-And-Revanced-Extended-Non-Root](https://github.com/FiorenMas/Revanced-And-Revanced-Extended-Non-Root) — 226 packages
+- [crimera/twitter-apk](https://github.com/crimera/twitter-apk) — 4 packages
+
+_Last updated: 2026-05-16 08:50 UTC_
 <!-- TRACKED_REPOS_END -->
 
 ---
