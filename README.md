@@ -47,7 +47,7 @@ _Last updated: 2026-05-16 08:50 UTC_
 
 ## Adding a new repo
 
-1. Add the repo identifier to `docs/repos/repos.json`
+1. Add the repo identifier to `track.json`
 2. The workflow picks it up on the next run and generates all the configs
 
 ---
