@@ -281,7 +281,7 @@ def generate_discoverium_config(
             "apkFilterRegEx": (
                 "^" +
                 re.escape(primary_name)
-                    .replace("\\.apk", ".*\\\\.apk$")
+                    .replace("\\.apk", ".*\\.apk$")
             ),
 
             "invertAPKFilter": False,
